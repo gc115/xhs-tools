@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>AI小红书文案生成器</title>
+<style>
+:root {
+  --red: #FF2442; --pink: #FF6B81; --bg: #f8f8f8;
+  --card: #fff; --text: #333; --sub: #999; --border: #eee;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* Header */
+.header { background: linear-gradient(135deg, var(--red), #ff4d6a); color: #fff; padding: 32px 20px 40px; text-align: center; border-radius: 0 0 30px 30px; }
+.header h1 { font-size: 28px; margin-bottom: 6px; }
+.header p { font-size: 14px; opacity: 0.85; }
+.status { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; background: rgba(255,255,255,0.2); padding: 6px 16px; border-radius: 20px; font-size: 13px; }
+.status-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
+
+/* Main */
+.main { max-width: 600px; margin: -20px auto 0; padding: 0 16px 100px; position: relative; z-index: 1; }
+
+/* Cards */
+.card { background: var(--card); border-radius: 16px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.card-title { font-size: 16px; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+
+/* Input */
+.product-input { width: 100%; min-height: 140px; border: 2px solid var(--border); border-radius: 12px; padding: 14px; font-size: 15px; line-height: 1.7; resize: none; font-family: inherit; transition: border-color 0.2s; outline: none; }
+.product-input:focus { border-color: var(--red); }
+.char-count { text-align: right; font-size: 12px; color: var(--sub); margin-top: 6px; }
+
+/* Styles */
+.styles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.style-btn { padding: 14px 8px; border: 2px solid var(--border); border-radius: 12px; background: #fff; text-align: center; cursor: pointer; transition: all 0.2s; font-size: 13px; font-family: inherit; }
+.style-btn:hover { border-color: var(--pink); }
+.style-btn.active { border-color: var(--red); background: #FFF5F7; font-weight: 600; }
+.style-icon { font-size: 24px; display: block; margin-bottom: 4px; }
+
+/* Length */
+.lengths { display: flex; gap: 10px; }
+.length-btn { flex: 1; padding: 14px; border: 2px solid var(--border); border-radius: 12px; background: #fff; text-align: center; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.length-btn.active { border-color: var(--red); background: #FFF5F7; font-weight: 600; }
+.length-btn .l-name { font-size: 15px; font-weight: 600; display: block; }
+.length-btn .l-desc { font-size: 11px; color: var(--sub); }
+
+/* Slider */
+.slider-row { display: flex; align-items: center; gap: 14px; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--red); }
+.count-badge { background: var(--red); color: #fff; font-weight: 700; padding: 6px 16px; border-radius: 20px; font-size: 18px; min-width: 36px; text-align: center; }
+
+/* Button */
+.generate-btn { width: 100%; padding: 18px; background: linear-gradient(135deg, var(--red), var(--pink)); color: #fff; border: none; border-radius: 50px; font-size: 18px; font-weight: 700; cursor: pointer; transition: transform 0.2s, opacity 0.2s; box-shadow: 0 4px 20px rgba(255,36,66,0.3); font-family: inherit; }
+.generate-btn:hover { transform: translateY(-1px); }
+.generate-btn:active { transform: scale(0.98); }
+.generate-btn:disabled { opacity: 0.6; transform: none; cursor: not-allowed; }
+
+/* Loading */
+.loading-overlay { display: none; position: fixed; inset: 0; background: rgba(255,255,255,0.9); z-index: 100; justify-content: center; align-items: center; flex-direction: column; }
+.loading-overlay.show { display: flex; }
+.spinner { width: 60px; height: 60px; border: 4px solid var(--border); border-top-color: var(--red); border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { margin-top: 20px; font-size: 16px; color: #666; }
+
+/* Results */
+.results { display: none; }
+.results.show { display: block; }
+.result-card { background: #fff; border-radius: 16px; padding: 20px; margin-bottom: 14px; position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+.result-num { font-size: 13px; font-weight: 700; color: var(--red); margin-bottom: 10px; }
+.result-text { font-size: 15px; line-height: 1.9; white-space: pre-wrap; color: #444; }
+.copy-btn { position: absolute; top: 16px; right: 16px; background: var(--red); color: #fff; border: none; padding: 6px 14px; border-radius: 20px; font-size: 12px; cursor: pointer; font-family: inherit; }
+.copy-all { width: 100%; padding: 14px; background: #fff; color: var(--red); border: 2px solid var(--red); border-radius: 50px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 10px; font-family: inherit; }
+.regenerate { width: 100%; padding: 14px; background: var(--red); color: #fff; border: none; border-radius: 50px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
+/* API Key Modal */
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; justify-content: center; align-items: center; padding: 20px; }
+.modal.show { display: flex; }
+.modal-card { background: #fff; border-radius: 20px; padding: 30px; max-width: 440px; width: 100%; }
+.modal-card h2 { font-size: 20px; margin-bottom: 8px; }
+.modal-card p { font-size: 14px; color: #666; margin-bottom: 20px; line-height: 1.6; }
+.modal-card input { width: 100%; padding: 14px; border: 2px solid var(--border); border-radius: 12px; font-size: 14px; outline: none; font-family: monospace; }
+.modal-card input:focus { border-color: var(--red); }
+.modal-card .btn-row { display: flex; gap: 10px; margin-top: 16px; }
+.modal-card .btn-save { flex: 1; padding: 14px; background: var(--red); color: #fff; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.modal-card .btn-link { flex: 1; padding: 14px; background: #f0f0f0; color: #333; border: none; border-radius: 12px; font-size: 14px; cursor: pointer; text-decoration: none; text-align: center; font-family: inherit; }
+.modal-card .skip { display: block; text-align: center; margin-top: 12px; font-size: 13px; color: #999; cursor: pointer; }
+
+/* Toast */
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; color: #fff; padding: 12px 24px; border-radius: 30px; font-size: 14px; z-index: 300; pointer-events: none; opacity: 0; transition: opacity 0.3s; }
+.toast.show { opacity: 1; }
+
+/* API settings */
+.api-settings { text-align: center; margin-top: 20px; }
+.api-settings button { background: none; border: 1px dashed #ccc; color: #999; padding: 8px 16px; border-radius: 20px; font-size: 12px; cursor: pointer; font-family: inherit; }
+
+/* Footer */
+.footer { text-align: center; padding: 20px; color: #ccc; font-size: 12px; }
+
+@media (max-width: 400px) {
+  .styles { grid-template-columns: repeat(2, 1fr); }
+  .header { padding: 24px 16px 32px; }
+  .header h1 { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>✨ AI 小红书文案生成器</h1>
+  <p>一键生成爆款种草文案</p>
+  <div class="status"><span class="status-dot"></span> AI 就绪</div>
+</div>
+
+<div class="main" id="mainApp">
+  <!-- Product Input -->
+  <div class="card">
+    <div class="card-title">📝 产品描述</div>
+    <textarea class="product-input" id="productInput" placeholder="输入产品名称和特点...&#10;&#10;例如：一款适合干皮的气垫粉底，遮瑕力强，持妆8小时" maxlength="500"></textarea>
+    <div class="char-count"><span id="charCount">0</span>/500</div>
+  </div>
+
+  <!-- Style -->
+  <div class="card">
+    <div class="card-title">🎨 文案风格</div>
+    <div class="styles" id="styleList"></div>
+  </div>
+
+  <!-- Length -->
+  <div class="card">
+    <div class="card-title">📏 文案长度</div>
+    <div class="lengths" id="lengthList"></div>
+  </div>
+
+  <!-- Count -->
+  <div class="card">
+    <div class="card-title">🔢 生成数量</div>
+    <div class="slider-row">
+      <span style="font-size:24px">1</span>
+      <input type="range" min="1" max="5" value="3" id="countSlider">
+      <span style="font-size:24px">5</span>
+      <span class="count-badge" id="countBadge">3</span>
+    </div>
+  </div>
+
+  <!-- Generate -->
+  <button class="generate-btn" id="generateBtn" onclick="generate()">✨ 一键生成文案</button>
+
+  <!-- API Settings -->
+  <div class="api-settings">
+    <button onclick="openSettings()">⚙️ 设置 API Key</button>
+  </div>
+
+  <!-- Results -->
+  <div class="results" id="results">
+    <div id="resultList"></div>
+    <button class="copy-all" onclick="copyAll()">📋 一键复制全部</button>
+    <button class="regenerate" onclick="scrollToTop()">🔄 重新生成</button>
+  </div>
+</div>
+
+<!-- Loading -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">正在分析产品特点...</div>
+</div>
+
+<!-- API Key Modal -->
+<div class="modal" id="apiModal">
+  <div class="modal-card">
+    <h2>🔑 设置 AI API Key</h2>
+    <p>前往 <b>platform.deepseek.com</b> 注册（免费），获取 API Key 后粘贴到下方。Key 只会保存在你的浏览器中。</p>
+    <input type="password" id="apiKeyInput" placeholder="sk-xxxxxxxxxxxxxxxx">
+    <div class="btn-row">
+      <a class="btn-link" href="https://platform.deepseek.com" target="_blank">去获取 Key →</a>
+      <button class="btn-save" onclick="saveApiKey()">保存</button>
+    </div>
+    <span class="skip" onclick="closeModal()">稍后设置</span>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="footer">AI 小红书文案生成器 · 免费使用</div>
+
+<script>
+// ==================== STATE ====================
+const STYLES = [
+  { id: '种草', name: '种草文案', icon: '🔥', prompt: '你是一个小红书爆款文案写手。用热情真诚的语气写种草文案，突出产品亮点和使用感受，多用emoji，让人看完就想买。' },
+  { id: '测评', name: '测评文案', icon: '📊', prompt: '你是一个专业的产品测评人。客观分析产品优缺点，用数据和实际体验说话，理性但不枯燥。' },
+  { id: '教程', name: '教程文案', icon: '📖', prompt: '你是一个耐心的教程博主。用清晰易懂的步骤讲解，像朋友在教你一样，带emoji和tips。' },
+  { id: '好物推荐', name: '好物推荐', icon: '⭐', prompt: '你是一个生活好物推荐官。精选优质好物，用简洁有力的语言介绍，突出性价比和独特卖点。' },
+  { id: '探店打卡', name: '探店打卡', icon: '📍', prompt: '你是一个探店博主。用生动的语言描述场景氛围和体验，带emoji和打卡tips。' },
+  { id: 'vlog口播', name: 'Vlog口播', icon: '🎬', prompt: '你是一个vlog博主。用口语化轻松自然的语气写口播稿，有节奏感，适合视频配音。' },
+];
+
+const LENGTHS = [
+  { id: 'short', name: '短文案', desc: '~100字', guide: '100字以内，短小精悍。' },
+  { id: 'medium', name: '中文案', desc: '~250字', guide: '200-300字，内容丰富但不啰嗦。' },
+  { id: 'long', name: '长文案', desc: '~500字', guide: '500字左右，详细深入。' },
+];
+
+let selectedStyle = 0;
+let selectedLength = 1;
+let apiKey = localStorage.getItem('deepseek_key') || '';
+
+// ==================== INIT ====================
+function init() {
+  // Style buttons
+  document.getElementById('styleList').innerHTML = STYLES.map((s, i) => `
+    <button class="style-btn ${i === selectedStyle ? 'active' : ''}" onclick="selectStyle(${i})">
+      <span class="style-icon">${s.icon}</span>${s.name}
+    </button>
+  `).join('');
+
+  // Length buttons
+  document.getElementById('lengthList').innerHTML = LENGTHS.map((l, i) => `
+    <button class="length-btn ${i === selectedLength ? 'active' : ''}" onclick="selectLength(${i})">
+      <span class="l-name">${l.name}</span><span class="l-desc">${l.desc}</span>
+    </button>
+  `).join('');
+
+  // Char count
+  document.getElementById('productInput').addEventListener('input', (e) => {
+    document.getElementById('charCount').textContent = e.target.value.length;
+  });
+
+  // Slider
+  document.getElementById('countSlider').addEventListener('input', (e) => {
+    document.getElementById('countBadge').textContent = e.target.value;
+  });
+
+  // Show API modal if no key
+  if (!apiKey) {
+    setTimeout(() => document.getElementById('apiModal').classList.add('show'), 500);
+  }
+}
+
+function selectStyle(i) {
+  selectedStyle = i;
+  document.querySelectorAll('.style-btn').forEach((btn, j) => btn.classList.toggle('active', j === i));
+}
+
+function selectLength(i) {
+  selectedLength = i;
+  document.querySelectorAll('.length-btn').forEach((btn, j) => btn.classList.toggle('active', j === i));
+}
+
+// ==================== API KEY ====================
+function openSettings() {
+  document.getElementById('apiKeyInput').value = apiKey;
+  document.getElementById('apiModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('apiModal').classList.remove('show');
+}
+
+function saveApiKey() {
+  apiKey = document.getElementById('apiKeyInput').value.trim();
+  localStorage.setItem('deepseek_key', apiKey);
+  closeModal();
+  showToast('✅ API Key 已保存');
+}
+
+// ==================== GENERATE ====================
+async function generate() {
+  const product = document.getElementById('productInput').value.trim();
+  if (!product) return showToast('请输入产品描述');
+
+  if (!apiKey) {
+    document.getElementById('apiModal').classList.add('show');
+    return showToast('请先设置 API Key');
+  }
+
+  const style = STYLES[selectedStyle];
+  const length = LENGTHS[selectedLength];
+  const count = parseInt(document.getElementById('countSlider').value);
+
+  // Show loading
+  const overlay = document.getElementById('loadingOverlay');
+  const loadingText = document.getElementById('loadingText');
+  overlay.classList.add('show');
+  document.getElementById('generateBtn').disabled = true;
+
+  const statuses = ['正在分析产品特点...', '匹配文案风格模板...', '✨ AI 正在撰写文案...', '即将完成...'];
+  let step = 0;
+  const timer = setInterval(() => {
+    if (step < statuses.length - 1) { step++; loadingText.textContent = statuses[step]; }
+  }, 800);
+
+  try {
+    const systemPrompt = `${style.prompt}\n\n格式要求：\n- ${length.guide}\n- 每段文案独立完整，包含标题\n- 使用emoji增加可读性\n- 自然融入热门话题标签\n- 用"我"的第一人称视角`;
+
+    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'deepseek-chat',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: `请为以下产品生成${count}条小红书文案：\n\n产品：${product}` },
+        ],
+        temperature: 0.8,
+        max_tokens: 2000,
+      }),
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || 'API 错误');
+
+    const content = data.choices[0].message.content;
+    let copies = content.split(/\n(?=\d+[\.、．]|\*+\s*文案)/).filter(c => c.trim().length > 10);
+    if (copies.length === 0) copies = content.split('\n\n').filter(c => c.trim().length > 10);
+    copies = copies.slice(0, count);
+
+    while (copies.length < count) {
+      copies.push(`✨ ${product}也太好用了吧！姐妹们冲！ #好物推荐`);
+    }
+
+    // Render results
+    document.getElementById('resultList').innerHTML = copies.map((c, i) => `
+      <div class="result-card">
+        <div class="result-num">文案 ${i + 1}</div>
+        <button class="copy-btn" onclick="copyOne(${i})">📋 复制</button>
+        <div class="result-text">${escapeHtml(c.trim())}</div>
+      </div>
+    `).join('');
+
+    document.getElementById('results').classList.add('show');
+    document.getElementById('results').scrollIntoView({ behavior: 'smooth' });
+
+    // Save to history
+    saveHistory(product, style.name, copies);
+
+  } catch (e) {
+    showToast('❌ ' + (e.message || '生成失败，请检查 API Key'));
+  } finally {
+    clearInterval(timer);
+    overlay.classList.remove('show');
+    document.getElementById('generateBtn').disabled = false;
+  }
+}
+
+// ==================== COPY ====================
+function copyOne(i) {
+  const text = document.querySelectorAll('.result-text')[i].textContent;
+  navigator.clipboard.writeText(text).then(() => showToast('已复制 ✅'));
+}
+
+function copyAll() {
+  const texts = [...document.querySelectorAll('.result-text')].map((el, i) => `【文案${i+1}】\n${el.textContent}`);
+  navigator.clipboard.writeText(texts.join('\n\n---\n\n')).then(() => showToast('全部已复制 ✅'));
+}
+
+// ==================== HELPERS ====================
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 2000); }
+function scrollToTop() { document.getElementById('results').classList.remove('show'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+
+function saveHistory(product, style, copies) {
+  let history = JSON.parse(localStorage.getItem('xhs_history') || '[]');
+  history.unshift({ product, style, copies, time: new Date().toLocaleString() });
+  history = history.slice(0, 20);
+  localStorage.setItem('xhs_history', JSON.stringify(history));
+}
+
+init();
+</script>
+</body>
+</html>
